@@ -4,6 +4,16 @@ val MunitVersion           = "0.7.29"
 val LogbackVersion         = "1.2.11"
 val MunitCatsEffectVersion = "1.0.7"
 
+lazy val assemblySettings = Seq(
+  assembly / test := {},
+  assembly / mainClass := Some("dev.rmaiun.sommocker.Main"),
+  assembly / assemblyJarName := "sommocker.jar",
+  assembly / assemblyMergeStrategy := {
+    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+    case x                             => MergeStrategy.first
+  }
+)
+
 lazy val root = (project in file("."))
   .settings(
     organization := "dev.rmaiun",
@@ -28,4 +38,12 @@ lazy val root = (project in file("."))
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.2" cross CrossVersion.full),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
     testFrameworks += new TestFramework("munit.Framework")
-  )
+  ).settings(assemblySettings: _*)
+
+lazy val formatAll = taskKey[Unit]("Run scala formatter for all projects")
+
+formatAll := {
+  ( root / Compile / scalafmt).value
+  (root / Test / scalafmt).value
+}
+

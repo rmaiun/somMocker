@@ -1,0 +1,93 @@
+version: 2
+jobs:
+  build:
+    docker:
+      # specify the version you desire here
+      - image: cimg/openjdk:11.0.16
+      - image: cimg/base:stable
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASS
+    working_directory: ~/repo
+    environment:
+      # Customize the JVM maximum heap limit
+      SBT_VERSION: 1.7.1
+      SOMMOCKER_IMAGE_NAME: mairo/sommocker
+      JVM_OPTS: -Xmx3200m
+      TERM: dumb
+    steps:
+      - checkout
+      - run:
+          name: Prepare jar
+          command: cat /dev/null | sbt clean assembly
+      - setup_remote_docker
+      - run:
+          name: Build docker image
+          command: docker build -t $SOMMOCKER_IMAGE_NAME:latest .
+      - run:
+          name: Save docker image
+          command: docker save -o image_sommocker.tar $SOMMOCKER_IMAGE_NAME:latest
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./image_sommocker.tar
+  publish-image:
+    docker:
+      - image: cimg/openjdk:8.0
+      - image: cimg/base:stable
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - setup_remote_docker
+      - run:
+          name: Load docker image
+          command: docker load -i /tmp/workspace/image_sommocker.tar
+      - run:
+          name: Login to dockerhub
+          command: cat /dev/null | echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      - run:
+          name: Publish new docker image
+          command: cat /dev/null | docker push mairo/sommocker:latest
+
+  redeploy-services:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - add_ssh_keys
+      - attach_workspace:
+          at: /tmp/workspace
+      - setup_remote_docker
+      - run: echo $SSH_IDENTITY
+      - run:
+          name: Update known hosts
+          command: ssh-keyscan -H $HOST_TO_DEPLOY >> ~/.ssh/known_hosts
+      - run:
+          name: Redeploy images
+          command: ssh $SSH_IDENTITY 'cd arbiter_infra && zx deployer.mjs'
+
+workflows:
+  version: 2
+  build-master:
+    jobs:
+      - build:
+          context: myctx
+          filters:
+            branches:
+              only:
+                - master
+      - publish-image:
+          context: myctx
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master
+      - redeploy-services:
+          context: myctx
+          requires:
+            - publish-image
+          filters:
+            branches:
+              only:
+                - master

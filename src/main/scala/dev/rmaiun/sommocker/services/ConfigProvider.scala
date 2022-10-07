@@ -1,6 +1,6 @@
 package dev.rmaiun.sommocker.services
 
-import dev.rmaiun.sommocker.dtos.{AppConfiguration, BrokerConfiguration}
+import dev.rmaiun.sommocker.dtos.AppConfiguration
 import pureconfig.ConfigSource
 import pureconfig.generic.auto._
 

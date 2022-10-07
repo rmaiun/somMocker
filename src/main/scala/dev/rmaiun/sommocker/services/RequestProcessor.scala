@@ -12,14 +12,14 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 object RequestProcessor {
   def apply[F[_]](implicit ev: RequestProcessor[F]): RequestProcessor[F] = ev
 
-  def impl[F[_]: Sync: Monad](
+  def impl[F[_]: Sync](
     stubs: Ref[F, Map[ConfigurationKeyDto, ConfigurationDataDto]],
     structs: AmqpStructures[F]
   ): RequestProcessor[F] =
     new RequestProcessor[F](stubs, structs.resultsPublisher, structs.logsPublisher)
 }
 
-class RequestProcessor[F[_]: Sync: Monad](
+class RequestProcessor[F[_]: Sync](
   stubs: Ref[F, Map[ConfigurationKeyDto, ConfigurationDataDto]],
   resultsPublisher: AmqpPublisher[F],
   logsPublisher: AmqpPublisher[F]
@@ -43,9 +43,9 @@ class RequestProcessor[F[_]: Sync: Monad](
     import io.circe.syntax._
     map.get(dto).fold(Monad[F].unit) { data =>
       val qty      = data.nodesQty
-      val messages = (0 until (qty)).map(a => amqpMsg(data.resultMock.toString())).toList
+      val messages = (0 until qty).map(_ => amqpMsg(data.resultMock.toString())).toList
       val logs = if (data.logsEnabled) {
-        (0 until (qty)).flatMap { a =>
+        (0 until qty).flatMap { _ =>
           val log1 =
             LogDto("defaultInstanceId", "2022-09-02T14:44:19.172Z", "INFO", "Disaggregation starts with SOM v1.0.2")
           val log2 = LogDto("defaultInstanceId", "2022-09-02T14:44:21.172Z", "INFO", "Instance was allocated")

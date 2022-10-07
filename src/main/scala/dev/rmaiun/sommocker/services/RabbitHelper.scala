@@ -26,7 +26,7 @@ object RabbitHelper {
     requestConsumer: AmqpConsumer[F],
     resultsPublisher: AmqpPublisher[F],
     logsPublisher: AmqpPublisher[F]
-  )(implicit MC: MonadCancel[F, Throwable])
+  )
 
   def config(cfg: BrokerConfiguration): Fs2RabbitConfig = Fs2RabbitConfig(
     virtualHost = cfg.vhost,
