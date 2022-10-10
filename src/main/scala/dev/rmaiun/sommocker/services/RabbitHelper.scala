@@ -3,15 +3,16 @@ package dev.rmaiun.sommocker.services
 import cats.Monad
 import cats.data.Kleisli
 import cats.effect.std.Dispatcher
-import cats.effect.{Async, MonadCancel}
+import cats.effect.{ Async, MonadCancel }
+import dev.profunktor.fs2rabbit.arguments.Arguments
 import dev.profunktor.fs2rabbit.config.Fs2RabbitConfig
 import dev.profunktor.fs2rabbit.config.declaration._
 import dev.profunktor.fs2rabbit.effects.MessageEncoder
 import dev.profunktor.fs2rabbit.interpreter.RabbitClient
-import dev.profunktor.fs2rabbit.model.ExchangeType.{Direct, FanOut}
+import dev.profunktor.fs2rabbit.model.ExchangeType.{ Direct, FanOut }
 import dev.profunktor.fs2rabbit.model._
 import dev.rmaiun.sommocker.dtos.BrokerConfiguration
-import fs2.{Stream => Fs2Stream}
+import fs2.{ Stream => Fs2Stream }
 
 import java.nio.charset.Charset
 import scala.concurrent.duration.DurationInt
@@ -61,22 +62,28 @@ object RabbitHelper {
   def initRabbitRoutes[F[_]](rc: RabbitClient[F])(implicit MC: MonadCancel[F, Throwable]): F[Unit] = {
     import cats.implicits._
     val channel = rc.createConnectionChannel
+    val uafConfigs: Arguments = Map(
+      "x-message-ttl" -> 99999999,
+      "x-max-length"  -> 10000,
+      "x-overflow"    -> "reject-publish",
+      "x-queue-mode"  -> "lazy"
+    )
     channel.use { implicit ch =>
       for {
-        _ <- rc.declareQueue(DeclarationQueueConfig(requestQueue, NonDurable, NonExclusive, AutoDelete, Map()))
-        _ <- rc.declareQueue(DeclarationQueueConfig(resultsQueue, NonDurable, NonExclusive, AutoDelete, Map()))
-        _ <- rc.declareQueue(DeclarationQueueConfig(logsQueue, NonDurable, NonExclusive, AutoDelete, Map()))
+        _ <- rc.declareQueue(DeclarationQueueConfig(requestQueue, NonDurable, NonExclusive, NonAutoDelete, uafConfigs))
+        _ <- rc.declareQueue(DeclarationQueueConfig(resultsQueue, NonDurable, NonExclusive, NonAutoDelete, uafConfigs))
+        _ <- rc.declareQueue(DeclarationQueueConfig(logsQueue, NonDurable, NonExclusive, NonAutoDelete, uafConfigs))
         _ <-
           rc.declareExchange(
-            DeclarationExchangeConfig(requestExchange, FanOut, NonDurable, AutoDelete, NonInternal, Map())
+            DeclarationExchangeConfig(requestExchange, FanOut, NonDurable, NonAutoDelete, NonInternal, Map())
           )
         _ <-
           rc.declareExchange(
-            DeclarationExchangeConfig(resultsInternalExchange, Direct, NonDurable, AutoDelete, NonInternal, Map())
+            DeclarationExchangeConfig(resultsInternalExchange, Direct, NonDurable, NonAutoDelete, NonInternal, Map())
           )
         _ <-
           rc.declareExchange(
-            DeclarationExchangeConfig(logsInternalExchange, Direct, NonDurable, AutoDelete, NonInternal, Map())
+            DeclarationExchangeConfig(logsInternalExchange, Direct, NonDurable, NonAutoDelete, NonInternal, Map())
           )
         _ <- rc.bindQueue(requestQueue, requestExchange, defaultRoutingKey)(ch)
         _ <- rc.bindQueue(resultsQueue, resultsInternalExchange, defaultRoutingKey)(ch)

@@ -63,7 +63,7 @@ jobs:
           command: ssh-keyscan -H $HOST_TO_DEPLOY >> ~/.ssh/known_hosts
       - run:
           name: Redeploy images
-          command: ssh $SSH_IDENTITY 'cd arbiter_infra && zx deployer.mjs'
+          command: ssh $SSH_IDENTITY 'cd sommocker_infra && zx som_deployer.mjs'
 
 workflows:
   version: 2
