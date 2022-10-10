@@ -63,20 +63,20 @@ object RabbitHelper {
     val channel = rc.createConnectionChannel
     channel.use { implicit ch =>
       for {
-        _ <- rc.declareQueue(DeclarationQueueConfig(requestQueue, Durable, NonExclusive, NonAutoDelete, Map()))
-        _ <- rc.declareQueue(DeclarationQueueConfig(resultsQueue, Durable, NonExclusive, NonAutoDelete, Map()))
-        _ <- rc.declareQueue(DeclarationQueueConfig(logsQueue, Durable, NonExclusive, NonAutoDelete, Map()))
+        _ <- rc.declareQueue(DeclarationQueueConfig(requestQueue, NonDurable, NonExclusive, AutoDelete, Map()))
+        _ <- rc.declareQueue(DeclarationQueueConfig(resultsQueue, NonDurable, NonExclusive, AutoDelete, Map()))
+        _ <- rc.declareQueue(DeclarationQueueConfig(logsQueue, NonDurable, NonExclusive, AutoDelete, Map()))
         _ <-
           rc.declareExchange(
-            DeclarationExchangeConfig(requestExchange, FanOut, Durable, NonAutoDelete, NonInternal, Map())
+            DeclarationExchangeConfig(requestExchange, FanOut, NonDurable, AutoDelete, NonInternal, Map())
           )
         _ <-
           rc.declareExchange(
-            DeclarationExchangeConfig(resultsInternalExchange, Direct, Durable, NonAutoDelete, NonInternal, Map())
+            DeclarationExchangeConfig(resultsInternalExchange, Direct, NonDurable, AutoDelete, NonInternal, Map())
           )
         _ <-
           rc.declareExchange(
-            DeclarationExchangeConfig(logsInternalExchange, Direct, Durable, NonAutoDelete, NonInternal, Map())
+            DeclarationExchangeConfig(logsInternalExchange, Direct, NonDurable, AutoDelete, NonInternal, Map())
           )
         _ <- rc.bindQueue(requestQueue, requestExchange, defaultRoutingKey)(ch)
         _ <- rc.bindQueue(resultsQueue, resultsInternalExchange, defaultRoutingKey)(ch)
