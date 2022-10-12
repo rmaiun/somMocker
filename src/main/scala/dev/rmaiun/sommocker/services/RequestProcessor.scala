@@ -1,11 +1,10 @@
 package dev.rmaiun.sommocker.services
 
-import cats.Monad
-import cats.effect.{Ref, Sync}
+import cats.effect.{ Ref, Sync }
 import cats.implicits._
-import dev.profunktor.fs2rabbit.model.{AmqpEnvelope, AmqpMessage, AmqpProperties}
+import cats.{ Applicative, Monad }
+import dev.profunktor.fs2rabbit.model.{ AmqpEnvelope, AmqpMessage, AmqpProperties }
 import dev.rmaiun.sommocker.dtos._
-import dev.rmaiun.sommocker.services.RabbitHelper.{AmqpPublisher, AmqpStructures}
 import io.circe.Json
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -14,15 +13,14 @@ object RequestProcessor {
 
   def impl[F[_]: Sync](
     stubs: Ref[F, Map[ConfigurationKeyDto, ConfigurationDataDto]],
-    structs: AmqpStructures[F]
+    algorithmStructureSet: AlgorithmStructureSet[F]
   ): RequestProcessor[F] =
-    new RequestProcessor[F](stubs, structs.resultsPublisher, structs.logsPublisher)
+    new RequestProcessor[F](stubs, algorithmStructureSet)
 }
 
 class RequestProcessor[F[_]: Sync](
   stubs: Ref[F, Map[ConfigurationKeyDto, ConfigurationDataDto]],
-  resultsPublisher: AmqpPublisher[F],
-  logsPublisher: AmqpPublisher[F]
+  algorithmStructureSet: AlgorithmStructureSet[F]
 ) {
   implicit val logger: SelfAwareStructuredLogger[F] = Slf4jLogger.getLoggerFromClass[F](getClass)
 
@@ -56,11 +54,22 @@ class RequestProcessor[F[_]: Sync](
       } else {
         List()
       }
+      val amqpMessagesSender = sendAmqpMessages(data.algorithm, algorithmStructureSet)(_, _)
       logger.info(s"Delivering ${messages.size} results") *>
         logger.info(s"Delivering ${logs.size} logs") *>
-        messages.map(m => resultsPublisher(m)).sequence_ *> logs.map(l => logsPublisher(l)).sequence_
+        amqpMessagesSender(messages, false) *> amqpMessagesSender(messages, true)
     }
   }
+
+  private def sendAmqpMessages(
+    algorithm: String,
+    algorithmStructureSet: AlgorithmStructureSet[F]
+  )(amqpMessages: List[AmqpMessage[String]], logs: Boolean): F[Unit] =
+    algorithmStructureSet.structures
+      .find(_.code == algorithm)
+      .fold(Applicative[F].unit)(found =>
+        amqpMessages.map(m => if (logs) found.structs.logsPublisher(m) else found.structs.resultsPublisher(m)).sequence_
+      )
 
   def processIncomingMessage(e: AmqpEnvelope[String]): F[Unit] = {
     import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._

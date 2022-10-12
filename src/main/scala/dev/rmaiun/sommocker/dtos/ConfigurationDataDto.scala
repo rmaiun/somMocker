@@ -5,6 +5,7 @@ import io.circe.{ Codec, Json }
 case class ConfigurationDataDto(
   processCode: String,
   optimizationRunId: String,
+  algorithm: String,
   nodesQty: Int,
   logsEnabled: Boolean,
   resultMock: Json

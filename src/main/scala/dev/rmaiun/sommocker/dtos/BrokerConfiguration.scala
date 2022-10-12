@@ -1,3 +1,10 @@
 package dev.rmaiun.sommocker.dtos
 
-case class BrokerConfiguration (host: String, vhost: String, port: Int, username: String, password: String)
+case class BrokerConfiguration(
+  host: String,
+  vhost: String,
+  port: Int,
+  username: String,
+  password: String,
+  algorithm: String
+)
