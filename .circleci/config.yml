@@ -83,11 +83,11 @@ workflows:
             branches:
               only:
                 - master
-      - redeploy-services:
-          context: myctx
-          requires:
-            - publish-image
-          filters:
-            branches:
-              only:
-                - master
+#      - redeploy-services:
+#          context: myctx
+#          requires:
+#            - publish-image
+#          filters:
+#            branches:
+#              only:
+#                - master

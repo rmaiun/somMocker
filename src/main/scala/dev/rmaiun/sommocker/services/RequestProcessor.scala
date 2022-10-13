@@ -57,7 +57,7 @@ class RequestProcessor[F[_]: Sync](
       val amqpMessagesSender = sendAmqpMessages(data.algorithm, algorithmStructureSet)(_, _)
       logger.info(s"Delivering ${messages.size} results") *>
         logger.info(s"Delivering ${logs.size} logs") *>
-        amqpMessagesSender(messages, false) *> amqpMessagesSender(messages, true)
+        amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
     }
   }
 
