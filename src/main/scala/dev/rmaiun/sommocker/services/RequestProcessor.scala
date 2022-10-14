@@ -3,7 +3,8 @@ package dev.rmaiun.sommocker.services
 import cats.effect.{ Ref, Sync }
 import cats.implicits._
 import cats.{ Applicative, Monad }
-import dev.profunktor.fs2rabbit.model.{ AmqpEnvelope, AmqpMessage, AmqpProperties }
+import dev.profunktor.fs2rabbit.model.AmqpFieldValue.StringVal
+import dev.profunktor.fs2rabbit.model.{ AmqpEnvelope, AmqpFieldValue, AmqpMessage, AmqpProperties }
 import dev.rmaiun.sommocker.dtos._
 import io.circe.Json
 import org.typelevel.log4cats.SelfAwareStructuredLogger
@@ -39,20 +40,20 @@ class RequestProcessor[F[_]: Sync](
   private def sendResults(dto: ConfigurationKeyDto, map: Map[ConfigurationKeyDto, ConfigurationDataDto]): F[Unit] = {
     import dev.rmaiun.sommocker.dtos.LogDto._
     import io.circe.syntax._
+
     map.get(dto).fold(Monad[F].unit) { data =>
       val qty      = data.nodesQty
       val messages = (0 until qty).map(_ => amqpMsg(data.resultMock.toString())).toList
       val logs = if (data.logsEnabled) {
         (0 until qty).flatMap { _ =>
-          val log1 =
-            LogDto("defaultInstanceId", "2022-09-02T14:44:19.172Z", "INFO", "Disaggregation starts with SOM v1.0.2")
-          val log2 = LogDto("defaultInstanceId", "2022-09-02T14:44:21.172Z", "INFO", "Instance was allocated")
-          val log3 = LogDto("defaultInstanceId", "2022-09-02T14:44:25.172Z", "INFO", "Computation completed")
-
+          val log1                                          = LogDto("defaultInstanceId", "2022-09-02T14:44:19.172Z", "INFO", "Disaggregation starts with SOM v1.0.2")
+          val log2                                          = LogDto("defaultInstanceId", "2022-09-02T14:44:21.172Z", "INFO", "Instance was allocated")
+          val log3                                          = LogDto("defaultInstanceId", "2022-09-02T14:44:25.172Z", "INFO", "Computation completed")
+          implicit val headers: Map[String, AmqpFieldValue] = logHeaders(dto)
           List(amqpMsg(log1.asJson.toString()), amqpMsg(log2.asJson.toString()), amqpMsg(log3.asJson.toString()))
         }.toList
       } else {
-        List()
+        List.empty
       }
       val amqpMessagesSender = sendAmqpMessages(data.algorithm, algorithmStructureSet)(_, _)
       logger.info(s"Delivering ${messages.size} results") *>
@@ -67,9 +68,7 @@ class RequestProcessor[F[_]: Sync](
   )(amqpMessages: List[AmqpMessage[String]], logs: Boolean): F[Unit] =
     algorithmStructureSet.structures
       .find(_.code == algorithm)
-      .fold(Applicative[F].unit)(found =>
-        amqpMessages.map(m => if (logs) found.structs.logsPublisher(m) else found.structs.resultsPublisher(m)).sequence_
-      )
+      .fold(Applicative[F].unit)(found => amqpMessages.map(m => if (logs) found.structs.logsPublisher(m) else found.structs.resultsPublisher(m)).sequence_)
 
   def processIncomingMessage(e: AmqpEnvelope[String]): F[Unit] = {
     import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
@@ -82,5 +81,18 @@ class RequestProcessor[F[_]: Sync](
 
   }
 
-  private def amqpMsg(data: String): AmqpMessage[String] = AmqpMessage(data, AmqpProperties())
+  private def logHeaders(key: ConfigurationKeyDto): Map[String, AmqpFieldValue] =
+    Map(
+      "categoryName"       -> StringVal("com.artelys.som.logging.SomLogger"),
+      "level"              -> StringVal("INFO"),
+      "som.command"        -> StringVal("mari"),
+      "som.optimizationId" -> StringVal(key.optimizationRunId),
+      "som.processId"      -> StringVal(key.processCode)
+    )
+
+  private def amqpMsg(data: String)(implicit headers: Map[String, AmqpFieldValue] = Map.empty): AmqpMessage[String] =
+    AmqpMessage(
+      data,
+      AmqpProperties(headers = headers, contentType = Some("application/json"), contentEncoding = Some("UTF-8"))
+    )
 }

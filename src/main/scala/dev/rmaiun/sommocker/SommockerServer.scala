@@ -4,12 +4,7 @@ import cats.effect.kernel.Ref
 import cats.effect.{ Async, Resource }
 import cats.syntax.all._
 import com.comcast.ip4s._
-import dev.rmaiun.sommocker.dtos.{
-  AlgorithmStructure,
-  AlgorithmStructureSet,
-  ConfigurationDataDto,
-  ConfigurationKeyDto
-}
+import dev.rmaiun.sommocker.dtos.{ AlgorithmStructure, AlgorithmStructureSet, ConfigurationDataDto, ConfigurationKeyDto }
 import dev.rmaiun.sommocker.services.RabbitHelper.initConnection
 import dev.rmaiun.sommocker.services.{ ConfigProvider, RabbitHelper, RequestProcessor }
 import fs2.Stream

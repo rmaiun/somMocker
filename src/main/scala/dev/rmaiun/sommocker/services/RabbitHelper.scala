@@ -82,9 +82,7 @@ object RabbitHelper {
     algorithm: String
   )(implicit MC: MonadCancel[F, Throwable]): Fs2Stream[F, AmqpStructures[F]] = {
     implicit val stringMessageCodec: Kleisli[F, AmqpMessage[String], AmqpMessage[Array[Byte]]] =
-      Kleisli[F, AmqpMessage[String], AmqpMessage[Array[Byte]]](s =>
-        Monad[F].pure(s.copy(payload = s.payload.getBytes(Charset.defaultCharset())))
-      )
+      Kleisli[F, AmqpMessage[String], AmqpMessage[Array[Byte]]](s => Monad[F].pure(s.copy(payload = s.payload.getBytes(Charset.defaultCharset()))))
     for {
       requestPublisher <- publisher(requestExchange(algorithm), defaultRoutingKey, rc)
       resultsPublisher <- publisher(resultsInternalExchange(algorithm), defaultRoutingKey, rc)
