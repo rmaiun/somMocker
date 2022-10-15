@@ -63,7 +63,7 @@ jobs:
           command: ssh-keyscan -H $HOST_TO_DEPLOY >> ~/.ssh/known_hosts
       - run:
           name: Redeploy images
-          command: ssh $SSH_IDENTITY 'cd sommocker_infra && zx som_deployer.mjs'
+          command: ssh $SSH_IDENTITY 'cd sommocker_infra && zx somdeployer.mjs'
 
 workflows:
   version: 2
@@ -83,11 +83,11 @@ workflows:
             branches:
               only:
                 - master
-#      - redeploy-services:
-#          context: myctx
-#          requires:
-#            - publish-image
-#          filters:
-#            branches:
-#              only:
-#                - master
+      - redeploy-services:
+          context: myctx
+          requires:
+            - publish-image
+          filters:
+            branches:
+              only:
+                - master
