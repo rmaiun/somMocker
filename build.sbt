@@ -33,17 +33,22 @@ lazy val root = (project in file("."))
       "org.scalameta"         %% "svm-subs"            % "20.2.0",
       "dev.profunktor"        %% "fs2-rabbit"          % "4.1.1",
       "org.typelevel"         %% "log4cats-slf4j"      % "2.2.0",
-      "com.github.pureconfig" %% "pureconfig"          % "0.14.0"
+      "com.github.pureconfig" %% "pureconfig"          % "0.14.0",
+      "dev.zio"               %% "zio"                 % "2.0.2",
+      "dev.zio"               %% "zio-streams"         % "2.0.2",
+      "eu.timepit"            %% "refined"             % "0.10.1",
+      "nl.vroste"             %% "zio-amqp"            % "0.4.0",
+      "dev.zio"               %% "zio-test"            % "2.0.2"                % Test
     ),
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.2" cross CrossVersion.full),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
     testFrameworks += new TestFramework("munit.Framework")
-  ).settings(assemblySettings: _*)
+  )
+  .settings(assemblySettings: _*)
 
 lazy val formatAll = taskKey[Unit]("Run scala formatter for all projects")
 
 formatAll := {
-  ( root / Compile / scalafmt).value
+  (root / Compile / scalafmt).value
   (root / Test / scalafmt).value
 }
-
