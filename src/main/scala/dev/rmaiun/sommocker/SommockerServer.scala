@@ -5,8 +5,8 @@ import cats.effect.{ Async, Resource }
 import cats.syntax.all._
 import com.comcast.ip4s._
 import dev.rmaiun.sommocker.dtos.{ AlgorithmStructure, AlgorithmStructureSet, ConfigurationDataDto, ConfigurationKeyDto }
-import dev.rmaiun.sommocker.services.RabbitHelper.initConnection
-import dev.rmaiun.sommocker.services.{ ConfigProvider, RabbitHelper, RequestProcessor }
+import .initConnection
+import dev.rmaiun.sommocker.services.{ ConfigProvider, RequestProcessor }
 import fs2.Stream
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._

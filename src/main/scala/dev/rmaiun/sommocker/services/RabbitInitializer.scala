@@ -34,7 +34,6 @@ object RabbitInitializer {
   }
 
   private def initPublisher(connection: Connection, algorithm: String, exchange: ExchangeName): ZStream[Scope, Throwable, ZPublisher] = {
-    val algRequestExchange = requestExchange(algorithm)
     val scoped = ZIO.scoped {
       for {
         c <- Amqp.createChannel(connection)
@@ -55,7 +54,7 @@ object RabbitInitializer {
           null,
           null
         )
-        c.publish(exchange, data.getBytes, defaultRoutingKey, props = props)
+        c.publish(exchange, data.getBytes(StandardCharsets.UTF_8), defaultRoutingKey, props = props)
       }
     }
     ZStream.acquireReleaseWith(scoped)(_ => ZIO.unit)
