@@ -3,11 +3,14 @@ package dev.rmaiun.sommocker.services
 import dev.rmaiun.sommocker.dtos._
 import io.circe.Json
 import zio._
+import zio.logging.backend.SLF4J
 
 import scala.language.postfixOps
 
 object RequestProcessor {
-  val live: ZLayer[Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]] & AlgorithmStructureSet, Nothing, RequestProcessor] =
+  type RequestProcessorEnv = Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]] & AlgorithmStructureSet
+
+  val live: ZLayer[RequestProcessorEnv, Nothing, RequestProcessor] =
     ZLayer.fromFunction(new RequestProcessor(_, _))
 }
 
@@ -15,20 +18,19 @@ class RequestProcessor(
   stubs: Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]],
   algorithmStructureSet: AlgorithmStructureSet
 ) {
-  // zio logging
-//  implicit val logger: SelfAwareStructuredLogger[F] = Slf4jLogger.getLoggerFromClass[F](getClass)
+  implicit val logger = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   def storeRequestConfiguration(dto: ConfigurationDataDto): Task[ConfigurationKeyDto] =
     for {
       _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processCode, dto.optimizationRunId) -> dto))
     } yield ConfigurationKeyDto(dto.processCode, dto.optimizationRunId)
 
-  def invokeRequest(dto: ConfigurationKeyDto): Task[Unit] =
+  def invokeRequest(dto: ConfigurationKeyDto): Task[EmptyResult] =
     for {
-//      _   <- logger.info(s"Processing request for $dto")
+      _   <- ZIO.logInfo(s"Processing request for $dto")
       map <- stubs.get
       _   <- sendResults(dto, map)
-    } yield ()
+    } yield EmptyResult()
 
   private def sendResults(dto: ConfigurationKeyDto, map: Map[ConfigurationKeyDto, ConfigurationDataDto]): Task[Unit] = {
     import dev.rmaiun.sommocker.dtos.LogDto._
@@ -49,9 +51,9 @@ class RequestProcessor(
       }
       val headers            = logHeaders(dto)
       val amqpMessagesSender = defineSenderF(data.algorithm, algorithmStructureSet, headers)(_, _)
-//      logger.info(s"Delivering ${messages.size} results") *>
-//        logger.info(s"Delivering ${logs.size} logs") *>
-      amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
+      ZIO.logInfo(s"Delivering ${messages.size} results") *>
+        ZIO.logInfo(s"Delivering ${logs.size} logs") *>
+        amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
     }
   }
 
@@ -74,7 +76,7 @@ class RequestProcessor(
     val dto = parse(e).getOrElse(Json.Null).as[ConfigurationKeyDto].getOrElse(ConfigurationKeyDto("-1", "-1"))
 
     for {
-//      _  <- logger.info(s"---> incoming request ${e.payload}")
+      _ <- ZIO.logInfo(s"---> incoming request $e")
       _ <- invokeRequest(dto)
     } yield ()
 

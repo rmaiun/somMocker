@@ -21,78 +21,67 @@ object RabbitInitializer {
     "x-queue-mode"  -> "lazy"
   )
 
-  def initRabbit(algorithm: String, cfg: BrokerConfiguration): Unit = {
+  def initRabbit(algorithm: String, cfg: BrokerConfiguration): ZIO[Scope, Throwable, AmqpComponents] = {
     val aMQPConfig = AMQPConfig(cfg.username, cfg.password, cfg.vhost, 10 seconds, ssl = false, cfg.host, cfg.port.toShort, 5000 seconds)
     for {
-      connection       <- ZStream.acquireReleaseWith(Amqp.connect(aMQPConfig))(_ => ZIO.succeed(()))
+      connection       <- Amqp.connect(aMQPConfig)
       _                <- initRabbitDataStructures(connection, algorithm)
-      requestPublisher <- initPublisher(connection, algorithm, requestExchange(algorithm))
-      resultsPublisher <- initPublisher(connection, algorithm, resultsInternalExchange(algorithm))
-      logsPublisher    <- initPublisher(connection, algorithm, logsInternalExchange(algorithm))
+      requestPublisher <- initPublisher(connection, requestExchange(algorithm))
+      resultsPublisher <- initPublisher(connection, resultsInternalExchange(algorithm))
+      logsPublisher    <- initPublisher(connection, logsInternalExchange(algorithm))
       requestConsumer  <- initRequestConsumer(connection, requestQueue(algorithm))
     } yield AmqpComponents(requestPublisher, requestConsumer, resultsPublisher, logsPublisher)
   }
 
-  private def initPublisher(connection: Connection, algorithm: String, exchange: ExchangeName): ZStream[Scope, Throwable, ZPublisher] = {
-    val scoped = ZIO.scoped {
-      for {
-        c <- Amqp.createChannel(connection)
-      } yield { (data: String, headers: Map[String, AnyRef]) =>
-        val props = new AMQP.BasicProperties(
-          "application/json",
-          "UTF-8",
-          headers.asJava,
-          null,
-          null,
-          UUID.randomUUID().toString,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null
-        )
-        c.publish(exchange, data.getBytes(StandardCharsets.UTF_8), defaultRoutingKey, props = props)
-      }
+  private def initPublisher(connection: Connection, exchange: ExchangeName): ZIO[Scope, Throwable, ZPublisher] =
+    for {
+      c <- Amqp.createChannel(connection)
+    } yield { (data: String, headers: Map[String, AnyRef]) =>
+      val props = new AMQP.BasicProperties(
+        "application/json",
+        "UTF-8",
+        headers.asJava,
+        null,
+        null,
+        UUID.randomUUID().toString,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      )
+      c.publish(exchange, data.getBytes(StandardCharsets.UTF_8), defaultRoutingKey, props = props)
     }
-    ZStream.acquireReleaseWith(scoped)(_ => ZIO.unit)
-  }
 
-  private def initRequestConsumer(connection: Connection, queue: QueueName): ZStream[Scope, Throwable, ZConsumer] = {
-    val scoped = ZIO.scoped {
-      for {
-        c <- Amqp.createChannel(connection)
-      } yield c
-        .consume(queue, ConsumerTag("requestConsumer"), autoAck = true)
-        .map(delivery => new String(delivery.getBody, StandardCharsets.UTF_8))
-    }
-    ZStream.acquireReleaseWith(scoped)(_ => ZIO.unit)
-  }
+  private def initRequestConsumer(connection: Connection, queue: QueueName): ZIO[Scope, Throwable, ZConsumer] =
+    for {
+      c <- Amqp.createChannel(connection)
+    } yield c
+      .consume(queue, ConsumerTag("requestConsumer"), autoAck = true)
+      .map(delivery => new String(delivery.getBody, StandardCharsets.UTF_8))
 
-  private def initRabbitDataStructures(connection: Connection, algorithm: String): ZStream[Any, Throwable, Unit] = {
+  private def initRabbitDataStructures(connection: Connection, algorithm: String): ZIO[Scope, Throwable, Unit] = {
     val algRequestQueue         = requestQueue(algorithm)
     val algResultsQueue         = resultsQueue(algorithm)
     val algLogsQueue            = logsQueue(algorithm)
     val algRequestExchange      = requestExchange(algorithm)
     val algResultsInterExchange = resultsInternalExchange(algorithm)
     val algLogsInterExchange    = logsInternalExchange(algorithm)
-    val scoped = ZIO.scoped {
-      for {
-        c <- Amqp.createChannel(connection)
-        _ <- c.queueDeclare(algRequestQueue, durable = false, autoDelete = false, exclusive = false, arguments = uafConfigs)
-        _ <- c.queueDeclare(algResultsQueue, durable = false, autoDelete = false, exclusive = false, arguments = uafConfigs)
-        _ <- c.queueDeclare(algLogsQueue, durable = false, autoDelete = false, exclusive = false, arguments = uafConfigs)
-        _ <- c.exchangeDeclare(algRequestExchange, Fanout, durable = false, autoDelete = false, internal = false)
-        _ <- c.exchangeDeclare(algResultsInterExchange, Direct, durable = false, autoDelete = false, internal = false)
-        _ <- c.exchangeDeclare(algLogsInterExchange, Direct, durable = false, autoDelete = false, internal = false)
-        _ <- c.queueBind(algRequestQueue, algRequestExchange, defaultRoutingKey)
-        _ <- c.queueBind(algResultsQueue, algResultsInterExchange, defaultRoutingKey)
-        _ <- c.queueBind(algLogsQueue, algLogsInterExchange, defaultRoutingKey)
-      } yield ()
-    }
-    ZStream.acquireReleaseWith(scoped)(_ => ZIO.succeed(()))
+    for {
+      c <- Amqp.createChannel(connection)
+      _ <- c.queueDeclare(algRequestQueue, durable = false, autoDelete = false, exclusive = false, arguments = uafConfigs)
+      _ <- c.queueDeclare(algResultsQueue, durable = false, autoDelete = false, exclusive = false, arguments = uafConfigs)
+      _ <- c.queueDeclare(algLogsQueue, durable = false, autoDelete = false, exclusive = false, arguments = uafConfigs)
+      _ <- c.exchangeDeclare(algRequestExchange, Fanout, durable = false, autoDelete = false, internal = false)
+      _ <- c.exchangeDeclare(algResultsInterExchange, Direct, durable = false, autoDelete = false, internal = false)
+      _ <- c.exchangeDeclare(algLogsInterExchange, Direct, durable = false, autoDelete = false, internal = false)
+      _ <- c.queueBind(algRequestQueue, algRequestExchange, defaultRoutingKey)
+      _ <- c.queueBind(algResultsQueue, algResultsInterExchange, defaultRoutingKey)
+      _ <- c.queueBind(algLogsQueue, algLogsInterExchange, defaultRoutingKey)
+    } yield ()
   }
 
   private def requestQueue(algorithm: String) = QueueName(s"SOM_REQUEST_$algorithm")
