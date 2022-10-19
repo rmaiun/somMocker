@@ -18,8 +18,6 @@ class RequestProcessor(
   stubs: Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]],
   algorithmStructureSet: AlgorithmStructureSet
 ) {
-  implicit val logger = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
-
   def storeRequestConfiguration(dto: ConfigurationDataDto): Task[ConfigurationKeyDto] =
     for {
       _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processCode, dto.optimizationRunId) -> dto))

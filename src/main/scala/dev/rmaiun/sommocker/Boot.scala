@@ -4,9 +4,12 @@ import dev.rmaiun.sommocker.Server.AppEnv
 import dev.rmaiun.sommocker.dtos.{ AlgorithmStructure, AlgorithmStructureSet, ConfigurationDataDto, ConfigurationKeyDto }
 import dev.rmaiun.sommocker.services.{ ConfigProvider, RabbitInitializer, RequestProcessor }
 import zio._
+import zio.logging.backend._
 
 object Boot extends ZIOApp {
-//  type ZEnv = Clock & Console & System & Random
+
+  private val logger = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
+
   override implicit def environmentTag: zio.EnvironmentTag[Environment] = EnvironmentTag[Environment]
 
   override type Environment = AppEnv
@@ -47,13 +50,14 @@ object Boot extends ZIOApp {
       } yield collection
     }
 
-  override def bootstrap: ZLayer[ZIOAppArgs, Any, Environment] = ZLayer.make[Environment](
-    Scope.default,
-    refLayer,
-    structsLayer,
-    subscriberLayer,
-    RequestProcessor.live
-  )
+  override def bootstrap: ZLayer[ZIOAppArgs, Any, Environment] = ZLayer
+    .make[Environment](
+      Scope.default,
+      refLayer,
+      structsLayer,
+      subscriberLayer,
+      RequestProcessor.live
+    ) ++ logger
 
   override def run: ZIO[Environment & ZIOAppArgs, Any, Any] =
     Server
