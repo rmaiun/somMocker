@@ -6,7 +6,7 @@ val MunitCatsEffectVersion = "1.0.7"
 
 lazy val assemblySettings = Seq(
   assembly / test := {},
-  assembly / mainClass := Some("dev.rmaiun.sommocker.Main"),
+  assembly / mainClass := Some("dev.rmaiun.sommocker.Boot"),
   assembly / assemblyJarName := "sommocker.jar",
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs @ _*) => MergeStrategy.discard
