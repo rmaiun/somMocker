@@ -41,21 +41,11 @@ object Boot extends ZIOApp {
     }
   }
 
-  val subscriberLayer: ZLayer[RequestProcessor with AlgorithmStructureSet, Nothing, Set[Fiber.Runtime[Throwable, Unit]]] =
-    ZLayer {
-      for {
-        set        <- ZIO.service[AlgorithmStructureSet]
-        rp         <- ZIO.service[RequestProcessor]
-        collection <- ZIO.foreach(set.structures)(s => s.structs.requestConsumer.tap(str => rp.processIncomingMessage(str)).runDrain.fork)
-      } yield collection
-    }
-
   override def bootstrap: ZLayer[ZIOAppArgs, Any, Environment] = ZLayer
     .make[Environment](
       Scope.default,
       refLayer,
       structsLayer,
-      subscriberLayer,
       RequestProcessor.live
     ) ++ logger
 

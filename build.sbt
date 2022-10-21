@@ -27,8 +27,6 @@ lazy val root = (project in file("."))
       "org.http4s"                  %% "http4s-dsl"              % Http4sVersion,
       "io.circe"                    %% "circe-generic"           % CirceVersion,
       "io.circe"                    %% "circe-parser"            % CirceVersion,
-      "org.scalameta"               %% "munit"                   % MunitVersion           % Test,
-      "org.typelevel"               %% "munit-cats-effect-3"     % MunitCatsEffectVersion % Test,
       "ch.qos.logback"               % "logback-classic"         % LogbackVersion         % Runtime,
       "com.github.pureconfig"       %% "pureconfig"              % "0.14.0",
       "dev.zio"                     %% "zio"                     % "2.0.2",
@@ -39,11 +37,12 @@ lazy val root = (project in file("."))
       "dev.zio"                     %% "zio-interop-cats"        % "3.1.1.0",
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server-zio" % "1.1.3",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe"        % "1.1.3",
-      "dev.zio"                     %% "zio-test"                % "2.0.2"                % Test
+      "dev.zio"                     %% "zio-test"                % "2.0.2"                % Test,
+      "dev.zio"                     %% "zio-test-sbt"            % "2.0.2"                % Test
     ),
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.2" cross CrossVersion.full),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
-    testFrameworks += new TestFramework("munit.Framework")
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
   .settings(assemblySettings: _*)
 
