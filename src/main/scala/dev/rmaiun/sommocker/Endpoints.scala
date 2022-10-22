@@ -4,7 +4,7 @@ import dev.rmaiun.sommocker.Server.AppEnv
 import dev.rmaiun.sommocker.dtos.ConfigurationDataDto._
 import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
 import dev.rmaiun.sommocker.dtos.{ ConfigurationDataDto, ConfigurationKeyDto, EmptyResult, ErrorInfo }
-import dev.rmaiun.sommocker.services.RequestProcessor
+import dev.rmaiun.sommocker.utils.Swagger
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
 import sttp.tapir.PublicEndpoint
@@ -21,17 +21,25 @@ object Endpoints {
 
   val initMockEndpoint: PublicEndpoint[ConfigurationDataDto, ErrorInfo, ConfigurationKeyDto, Any] = {
     endpoint.post
+      .description("Init mock for particular process code and optimization run id")
       .in("initMock")
-      .in(jsonBody[ConfigurationDataDto])
-      .out(jsonBody[ConfigurationKeyDto])
+      .in(
+        jsonBody[ConfigurationDataDto]
+          .example(ConfigurationDataDto("x1", "or1", "ALG_SOM1_DEV", 4, logsEnabled = false, Swagger.initMockJsonExample))
+      )
+      .out(
+        jsonBody[ConfigurationKeyDto]
+          .example(ConfigurationKeyDto("x1", "or1"))
+      )
       .errorOut(jsonBody[ErrorInfo])
   }
 
   val evaluateMockEndpoint: PublicEndpoint[ConfigurationKeyDto, ErrorInfo, EmptyResult, Any] = {
     endpoint.post
+      .description("Evaluate response generation for preconfigured mock")
       .in("evaluateMock")
-      .in(jsonBody[ConfigurationKeyDto])
-      .out(jsonBody[EmptyResult])
+      .in(jsonBody[ConfigurationKeyDto].example(ConfigurationKeyDto("x1", "or1")))
+      .out(jsonBody[EmptyResult].example(EmptyResult()))
       .errorOut(jsonBody[ErrorInfo])
   }
 

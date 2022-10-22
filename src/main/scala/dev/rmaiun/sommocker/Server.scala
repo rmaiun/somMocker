@@ -9,6 +9,8 @@ import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.middleware.Logger
+import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
 import zio.interop.catz._
 import zio.{ RIO, _ }
 
@@ -16,8 +18,12 @@ object Server {
   type MockRef = Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]]
   type AppEnv  = RequestProcessor with AlgorithmStructureSet with MockRef with Scope
   def run(): ZIO[AppEnv, Throwable, Unit] = {
-    val httpApp      = Router("/" -> Endpoints.routes).orNotFound
-    val finalHttpApp = Logger.httpApp(logHeaders = true, logBody = true)(httpApp)
+    // docs/index.html?url=/docs/docs.yml
+    val swaggerRoutes = ZHttp4sServerInterpreter()
+      .from(SwaggerInterpreter().fromServerEndpoints[RIO[AppEnv, *]](Endpoints.endpoints, "sommocker", "0.1.0"))
+      .toRoutes
+    val httpApp      = Router("/" -> (Endpoints.routes <+> swaggerRoutes)).orNotFound
+    val finalHttpApp = Logger.httpApp(logHeaders = true, logBody = false)(httpApp)
     for {
       set <- ZIO.service[AlgorithmStructureSet]
       rp  <- ZIO.service[RequestProcessor]
