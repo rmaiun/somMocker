@@ -22,14 +22,19 @@ class RequestProcessor(
       _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processCode, dto.optimizationRunId) -> dto))
     } yield ConfigurationKeyDto(dto.processCode, dto.optimizationRunId)
 
-  def invokeRequest(dto: ConfigurationKeyDto, semiAutoMode: Boolean = false): Task[EmptyResult] =
+  def invokeRequest(dto: ConfigurationKeyDto, semiAutoMode: Boolean = false, duration: Duration = 1 seconds): Task[EmptyResult] =
     for {
       _   <- ZIO.logInfo(s"Processing request for $dto")
       map <- stubs.get
-      _   <- sendResults(dto, map)
+      _   <- sendResults(dto, map, duration)
     } yield EmptyResult()
 
-  private def sendResults(dto: ConfigurationKeyDto, map: Map[ConfigurationKeyDto, ConfigurationDataDto], semiAutoMode: Boolean = false): Task[Unit] = {
+  private def sendResults(
+    dto: ConfigurationKeyDto,
+    map: Map[ConfigurationKeyDto, ConfigurationDataDto],
+    duration: Duration,
+    semiAutoMode: Boolean = false
+  ): Task[Unit] = {
     import dev.rmaiun.sommocker.dtos.LogDto._
     import io.circe.syntax._
     val unit: Task[Unit] = ZIO.unit
@@ -51,7 +56,7 @@ class RequestProcessor(
       val amqpMessagesSender = defineSenderF(data.algorithm, algorithmStructureSet, headers)(_, _)
       ZIO.logInfo(s"Delivering ${messages.size} results") *>
         ZIO.logInfo(s"Delivering ${logs.size} logs") *>
-        ZIO.sleep(15 seconds) *>
+        ZIO.sleep(duration) *>
         amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
     }
   }
@@ -76,7 +81,7 @@ class RequestProcessor(
 
     for {
       _ <- ZIO.logInfo(s"---> incoming request $e")
-      _ <- invokeRequest(dto, semiAutoMode = true)
+      _ <- invokeRequest(dto, semiAutoMode = true, 15 seconds)
     } yield ()
 
   }
