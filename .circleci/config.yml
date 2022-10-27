@@ -18,8 +18,14 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Clean sources
+          command: cat /dev/null | sbt clean
+      - run:
+          name: Run tests
+          command: cat /dev/null | sbt test
+      - run:
           name: Prepare jar
-          command: cat /dev/null | sbt clean assembly
+          command: cat /dev/null | sbt assembly
       - setup_remote_docker
       - run:
           name: Build docker image
