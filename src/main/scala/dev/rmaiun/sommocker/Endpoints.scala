@@ -3,7 +3,7 @@ package dev.rmaiun.sommocker
 import dev.rmaiun.sommocker.Server.AppEnv
 import dev.rmaiun.sommocker.dtos.ConfigurationDataDto._
 import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
-import dev.rmaiun.sommocker.dtos.{ ConfigurationDataDto, ConfigurationKeyDto, EmptyResult, ErrorInfo }
+import dev.rmaiun.sommocker.dtos.{ConfigurationDataDto, ConfigurationKeyDto, EmptyResult, ErrorInfo}
 import dev.rmaiun.sommocker.utils.Swagger
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
@@ -11,8 +11,9 @@ import sttp.tapir.PublicEndpoint
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
 import sttp.tapir.ztapir._
-import zio.{ RIO, ZIO }
+import zio.{RIO, ZIO}
 object Endpoints {
 //  implicit val x1 = stringJsonBody.schema(implicitly[Schema[ConfigurationDataDto]].as[String])
 //  implicit val x2 = stringJsonBody.schema(implicitly[Schema[ConfigurationKeyDto]].as[String])
@@ -62,6 +63,11 @@ object Endpoints {
     evaluateMockServerEndpoint
   )
 
-  val routes: HttpRoutes[RIO[AppEnv, *]] =
-    ZHttp4sServerInterpreter().from(endpoints).toRoutes
+  val routes: HttpRoutes[RIO[AppEnv, *]] = {
+    // docs/index.html?url=/docs/docs.yml
+    val swaggerEndpoints: List[ZServerEndpoint[AppEnv, Any]] = SwaggerInterpreter()
+      .fromServerEndpoints[RIO[AppEnv, *]](Endpoints.endpoints, "sommocker", "0.1.0")
+    val allEndpoints:List[ZServerEndpoint[AppEnv, Any]] = endpoints.appendedAll(swaggerEndpoints)
+    ZHttp4sServerInterpreter().from(allEndpoints).toRoutes
+  }
 }

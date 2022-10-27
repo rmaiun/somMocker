@@ -9,8 +9,6 @@ import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.middleware.Logger
-import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
-import sttp.tapir.swagger.bundle.SwaggerInterpreter
 import zio.interop.catz._
 import zio.{RIO, _}
 
@@ -18,17 +16,13 @@ object Server {
   type MockRef = Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]]
   type AppEnv  = RequestProcessor with AlgorithmStructureSet with MockRef with Scope
   def start(): ZIO[AppEnv, Throwable, Unit] =
-    // docs/index.html?url=/docs/docs.yml
     for {
-      set <- ZIO.service[AlgorithmStructureSet]
-      rp  <- ZIO.service[RequestProcessor]
-      _   <- ZIO.logInfo("Starting request consumer ...")
-      _   <- (ZIO foreach set.structures)(s => s.structs.requestConsumer.tap(str => rp.processIncomingMessage(str)).runDrain.fork)
-      _   <- ZIO.logInfo("request consumer is successfully started")
-      swaggerRoutes = ZHttp4sServerInterpreter()
-                        .from(SwaggerInterpreter().fromServerEndpoints[RIO[AppEnv, *]](Endpoints.endpoints, "sommocker", "0.1.0"))
-                        .toRoutes
-      httpApp      = Router("/" -> (Endpoints.routes <+> swaggerRoutes)).orNotFound
+      set         <- ZIO.service[AlgorithmStructureSet]
+      rp          <- ZIO.service[RequestProcessor]
+      _           <- ZIO.logInfo("Starting request consumer ...")
+      _           <- (ZIO foreach set.structures)(s => s.structs.requestConsumer.tap(str => rp.processIncomingMessage(str)).runDrain.fork)
+      _           <- ZIO.logInfo("request consumer is successfully started")
+      httpApp      = Router("/" -> Endpoints.routes).orNotFound
       finalHttpApp = Logger.httpApp(logHeaders = true, logBody = false)(httpApp)
       scoped <- (EmberServerBuilder
                   .default[RIO[AppEnv, *]]
