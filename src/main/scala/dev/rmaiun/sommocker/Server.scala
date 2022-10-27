@@ -25,6 +25,7 @@ object Server {
     val httpApp      = Router("/" -> (Endpoints.routes <+> swaggerRoutes)).orNotFound
     val finalHttpApp = Logger.httpApp(logHeaders = true, logBody = false)(httpApp)
     for {
+      _ <- ZIO.logInfo("Starting server ...")
       set <- ZIO.service[AlgorithmStructureSet]
       rp  <- ZIO.service[RequestProcessor]
       _   <- (ZIO foreach set.structures)(s => s.structs.requestConsumer.tap(str => rp.processIncomingMessage(str)).runDrain.fork)
