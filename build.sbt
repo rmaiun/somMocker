@@ -9,8 +9,11 @@ lazy val assemblySettings = Seq(
   assembly / mainClass := Some("dev.rmaiun.sommocker.Boot"),
   assembly / assemblyJarName := "sommocker.jar",
   assembly / assemblyMergeStrategy := {
-    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-    case x                             => MergeStrategy.first
+    case PathList("META-INF", "maven", "org.webjars", "swagger-ui", "pom.properties") =>
+      MergeStrategy.singleOrError
+    case x =>
+      val oldStrategy = (assembly / assemblyMergeStrategy).value
+      oldStrategy(x)
   }
 )
 
@@ -27,7 +30,7 @@ lazy val root = (project in file("."))
       "org.http4s"                  %% "http4s-dsl"              % Http4sVersion,
       "io.circe"                    %% "circe-generic"           % CirceVersion,
       "io.circe"                    %% "circe-parser"            % CirceVersion,
-      "ch.qos.logback"               % "logback-classic"         % LogbackVersion         % Runtime,
+      "ch.qos.logback"               % "logback-classic"         % LogbackVersion % Runtime,
       "com.github.pureconfig"       %% "pureconfig"              % "0.14.0",
       "dev.zio"                     %% "zio"                     % "2.0.2",
       "dev.zio"                     %% "zio-streams"             % "2.0.2",
@@ -38,8 +41,8 @@ lazy val root = (project in file("."))
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server-zio" % "1.1.3",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe"        % "1.1.3",
       "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle" % "1.1.3",
-      "dev.zio"                     %% "zio-test"                % "2.0.2"                % Test,
-      "dev.zio"                     %% "zio-test-sbt"            % "2.0.2"                % Test
+      "dev.zio"                     %% "zio-test"                % "2.0.2"        % Test,
+      "dev.zio"                     %% "zio-test-sbt"            % "2.0.2"        % Test
     ),
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.2" cross CrossVersion.full),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),

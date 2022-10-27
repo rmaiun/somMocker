@@ -65,9 +65,10 @@ object Endpoints {
 
   val routes: HttpRoutes[RIO[AppEnv, *]] = {
     // docs/index.html?url=/docs/docs.yml
-    val swaggerEndpoints: List[ZServerEndpoint[AppEnv, Any]] = SwaggerInterpreter()
-      .fromServerEndpoints[RIO[AppEnv, *]](Endpoints.endpoints, "sommocker", "0.1.0")
-    val allEndpoints:List[ZServerEndpoint[AppEnv, Any]] = endpoints.appendedAll(swaggerEndpoints)
-    ZHttp4sServerInterpreter().from(allEndpoints).toRoutes
+    ZHttp4sServerInterpreter().from(endpoints).toRoutes
   }
+
+  val swaggerRoutes:HttpRoutes[RIO[AppEnv, *]] = ZHttp4sServerInterpreter()
+    .from(SwaggerInterpreter().fromServerEndpoints[RIO[AppEnv, *]](Endpoints.endpoints, "sommocker", "0.1.0"))
+    .toRoutes
 }
