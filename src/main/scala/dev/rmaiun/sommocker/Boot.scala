@@ -39,6 +39,7 @@ object Boot extends ZIOApp {
         )
       )
     }
+      .tapErrorCause(err => ZIO.logCause(Cause.fail(err)))
   }
 
   override def bootstrap: ZLayer[ZIOAppArgs, Any, Environment] = ZLayer
@@ -52,6 +53,6 @@ object Boot extends ZIOApp {
   override def run: ZIO[Environment & ZIOAppArgs, Any, Any] =
     Server
       .run()
-      .tapError(err => ZIO.logError(err.getMessage))
+      .tapErrorCause(err => ZIO.logCause(Cause.fail(err)))
       .exitCode
 }

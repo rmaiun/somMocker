@@ -22,13 +22,19 @@ object RabbitInitializer {
   )
 
   def initRabbit(algorithm: String, cfg: BrokerConfiguration): ZIO[Scope, Throwable, AmqpComponents] = {
-    val aMQPConfig = AMQPConfig(cfg.username, cfg.password, cfg.vhost, 10 seconds, ssl = false, cfg.host, cfg.port.toShort, 5000 seconds)
+    val aMQPConfig = AMQPConfig(cfg.username, cfg.password, cfg.vhost, 10 seconds, ssl = false, cfg.host, cfg.port.toShort, 5 seconds)
     for {
+      _ <- ZIO.logInfo(s"Establishing connection to RabbitMQ for SOM $algorithm")
       connection       <- Amqp.connect(aMQPConfig)
+      _ <- ZIO.logInfo(s"Initializing data structures for SOM $algorithm")
       _                <- initRabbitDataStructures(connection, algorithm)
+      _ <- ZIO.logInfo(s"Creating request publisher for SOM $algorithm")
       requestPublisher <- initPublisher(connection, requestExchange(algorithm))
+      _ <- ZIO.logInfo(s"Creating results publisher for SOM $algorithm")
       resultsPublisher <- initPublisher(connection, resultsInternalExchange(algorithm))
+      _ <- ZIO.logInfo(s"Creating logs publisher for SOM $algorithm")
       logsPublisher    <- initPublisher(connection, logsInternalExchange(algorithm))
+      _ <- ZIO.logInfo(s"Creating request consumer for SOM $algorithm")
       requestConsumer  <- initRequestConsumer(connection, requestQueue(algorithm))
     } yield AmqpComponents(requestPublisher, requestConsumer, resultsPublisher, logsPublisher)
   }
