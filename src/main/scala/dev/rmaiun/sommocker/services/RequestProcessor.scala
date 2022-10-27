@@ -3,7 +3,6 @@ package dev.rmaiun.sommocker.services
 import dev.rmaiun.sommocker.dtos._
 import io.circe.Json
 import zio._
-import zio.logging.backend.SLF4J
 
 import scala.language.postfixOps
 
@@ -23,18 +22,19 @@ class RequestProcessor(
       _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processCode, dto.optimizationRunId) -> dto))
     } yield ConfigurationKeyDto(dto.processCode, dto.optimizationRunId)
 
-  def invokeRequest(dto: ConfigurationKeyDto): Task[EmptyResult] =
+  def invokeRequest(dto: ConfigurationKeyDto, semiAutoMode: Boolean = false): Task[EmptyResult] =
     for {
       _   <- ZIO.logInfo(s"Processing request for $dto")
       map <- stubs.get
       _   <- sendResults(dto, map)
     } yield EmptyResult()
 
-  private def sendResults(dto: ConfigurationKeyDto, map: Map[ConfigurationKeyDto, ConfigurationDataDto]): Task[Unit] = {
+  private def sendResults(dto: ConfigurationKeyDto, map: Map[ConfigurationKeyDto, ConfigurationDataDto], semiAutoMode: Boolean = false): Task[Unit] = {
     import dev.rmaiun.sommocker.dtos.LogDto._
     import io.circe.syntax._
     val unit: Task[Unit] = ZIO.unit
-    map.get(dto).fold(unit) { data =>
+    val key              = if (semiAutoMode) ConfigurationKeyDto(dto.processCode, "*") else dto
+    map.get(key).fold(unit) { data =>
       val qty      = data.nodesQty
       val messages = (0 until qty).map(_ => data.resultMock.toString()).toList
       val logs = if (data.logsEnabled) {
@@ -42,7 +42,7 @@ class RequestProcessor(
           val log1 = LogDto("defaultInstanceId", "2022-09-02T14:44:19.172Z", "INFO", "Disaggregation starts with SOM v1.0.2")
           val log2 = LogDto("defaultInstanceId", "2022-09-02T14:44:21.172Z", "INFO", "Instance was allocated")
           val log3 = LogDto("defaultInstanceId", "2022-09-02T14:44:25.172Z", "INFO", "Computation completed")
-          List(log1.asJson.toString(), log2.asJson.toString(), log2.asJson.toString())
+          List(log1.asJson.toString(), log2.asJson.toString(), log3.asJson.toString())
         }.toList
       } else {
         List.empty
@@ -51,6 +51,7 @@ class RequestProcessor(
       val amqpMessagesSender = defineSenderF(data.algorithm, algorithmStructureSet, headers)(_, _)
       ZIO.logInfo(s"Delivering ${messages.size} results") *>
         ZIO.logInfo(s"Delivering ${logs.size} logs") *>
+        ZIO.sleep(15 seconds) *>
         amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
     }
   }
@@ -75,7 +76,7 @@ class RequestProcessor(
 
     for {
       _ <- ZIO.logInfo(s"---> incoming request $e")
-      _ <- invokeRequest(dto)
+      _ <- invokeRequest(dto, semiAutoMode = true)
     } yield ()
 
   }
