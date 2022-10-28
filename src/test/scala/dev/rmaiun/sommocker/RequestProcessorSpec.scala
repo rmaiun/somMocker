@@ -16,7 +16,7 @@ object RequestProcessorSpec extends ZIOSpecDefault {
       val dto = ConfigurationDataDto("pc1", "or1", "ag1", 4, logsEnabled = false, Json.Null)
       for {
         rp <- ZIO.serviceWithZIO[RequestProcessor](_.storeRequestConfiguration(dto))
-      } yield assertTrue(rp.processCode == dto.processCode)
+      } yield assertTrue(rp.processId == dto.processId)
     }
   ).provideLayer(
     ZLayer.make[RequestProcessor](

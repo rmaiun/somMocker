@@ -19,14 +19,14 @@ class RequestProcessor(
 ) {
   def storeRequestConfiguration(dto: ConfigurationDataDto): Task[ConfigurationKeyDto] =
     for {
-      _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processCode, dto.optimizationRunId) -> dto))
-    } yield ConfigurationKeyDto(dto.processCode, dto.optimizationRunId)
+      _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processId, dto.optimizationId) -> dto))
+    } yield ConfigurationKeyDto(dto.processId, dto.optimizationId)
 
   def invokeRequest(dto: ConfigurationKeyDto, semiAutoMode: Boolean = false, duration: Duration = 1 seconds): Task[EmptyResult] =
     for {
       _   <- ZIO.logInfo(s"Processing request for $dto")
       map <- stubs.get
-      _   <- sendResults(dto, map, duration)
+      _   <- sendResults(dto, map, duration, semiAutoMode = semiAutoMode)
     } yield EmptyResult()
 
   private def sendResults(
@@ -38,7 +38,7 @@ class RequestProcessor(
     import dev.rmaiun.sommocker.dtos.LogDto._
     import io.circe.syntax._
     val unit: Task[Unit] = ZIO.unit
-    val key              = if (semiAutoMode) ConfigurationKeyDto(dto.processCode, "*") else dto
+    val key              = if (semiAutoMode) ConfigurationKeyDto(dto.processId, "*") else dto
     map.get(key).fold(unit) { data =>
       val qty      = data.nodesQty
       val messages = (0 until qty).map(_ => data.resultMock.toString()).toList
@@ -54,10 +54,13 @@ class RequestProcessor(
       }
       val headers            = logHeaders(dto)
       val amqpMessagesSender = defineSenderF(data.algorithm, algorithmStructureSet, headers)(_, _)
-      ZIO.logInfo(s"Delivering ${messages.size} results") *>
-        ZIO.logInfo(s"Delivering ${logs.size} logs") *>
-        ZIO.sleep(duration) *>
-        amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
+      for {
+        _ <- ZIO.logInfo("Delivery is planned")
+        _ <- ZIO.sleep(duration)
+        _ <- ZIO.logInfo(s"Delivering ${messages.size} results and ${logs.size} logs")
+        _ <- amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
+        _ <- ZIO.logInfo("Delivery is successfully finished")
+      } yield()
     }
   }
 
@@ -77,11 +80,17 @@ class RequestProcessor(
   def processIncomingMessage(e: String): Task[Unit] = {
     import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
     import io.circe.parser._
-    val dto = parse(e).getOrElse(Json.Null).as[ConfigurationKeyDto].getOrElse(ConfigurationKeyDto("-1", "-1"))
+
+    val dto = for{
+      json <- parse(e)
+      obj <- json.as[ConfigurationKeyDto]
+    }yield obj
+
+    val finalDto = dto.getOrElse(ConfigurationKeyDto("-1", "-1"))
 
     for {
       _ <- ZIO.logInfo(s"---> incoming request $e")
-      _ <- invokeRequest(dto, semiAutoMode = true, 15 seconds)
+      _ <- invokeRequest(finalDto, semiAutoMode = true, 15 seconds)
     } yield ()
 
   }
@@ -91,7 +100,7 @@ class RequestProcessor(
       "categoryName"       -> "com.artelys.som.logging.SomLogger",
       "level"              -> "INFO",
       "som.command"        -> "mari",
-      "som.optimizationId" -> key.optimizationRunId,
-      "som.processId"      -> key.processCode
+      "som.optimizationId" -> key.optimizationId,
+      "som.processId"      -> key.processId
     )
 }
