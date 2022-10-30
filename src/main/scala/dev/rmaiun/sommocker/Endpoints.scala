@@ -3,7 +3,7 @@ package dev.rmaiun.sommocker
 import dev.rmaiun.sommocker.Server.AppEnv
 import dev.rmaiun.sommocker.dtos.ConfigurationDataDto._
 import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
-import dev.rmaiun.sommocker.dtos.{ConfigurationDataDto, ConfigurationKeyDto, EmptyResult, ErrorInfo}
+import dev.rmaiun.sommocker.dtos.{ ConfigurationDataDto, ConfigurationKeyDto, EmptyResult, ErrorInfo }
 import dev.rmaiun.sommocker.utils.Swagger
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
@@ -13,7 +13,7 @@ import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
 import sttp.tapir.ztapir._
-import zio.{RIO, ZIO}
+import zio.{ RIO, ZIO }
 object Endpoints {
 //  implicit val x1 = stringJsonBody.schema(implicitly[Schema[ConfigurationDataDto]].as[String])
 //  implicit val x2 = stringJsonBody.schema(implicitly[Schema[ConfigurationKeyDto]].as[String])
@@ -68,7 +68,7 @@ object Endpoints {
     ZHttp4sServerInterpreter().from(endpoints).toRoutes
   }
 
-  val swaggerRoutes:HttpRoutes[RIO[AppEnv, *]] = ZHttp4sServerInterpreter()
+  val swaggerRoutes: HttpRoutes[RIO[AppEnv, *]] = ZHttp4sServerInterpreter()
     .from(SwaggerInterpreter().fromServerEndpoints[RIO[AppEnv, *]](Endpoints.endpoints, "sommocker", "0.1.0"))
     .toRoutes
 }

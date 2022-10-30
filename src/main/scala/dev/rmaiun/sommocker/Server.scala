@@ -1,16 +1,16 @@
 package dev.rmaiun.sommocker
 
-import cats.effect.{Async, Resource}
+import cats.effect.{ Async, Resource }
 import cats.syntax.all._
 import com.comcast.ip4s._
-import dev.rmaiun.sommocker.dtos.{AlgorithmStructureSet, ConfigurationDataDto, ConfigurationKeyDto}
+import dev.rmaiun.sommocker.dtos.{ AlgorithmStructureSet, ConfigurationDataDto, ConfigurationKeyDto }
 import dev.rmaiun.sommocker.services.RequestProcessor
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.middleware.Logger
 import zio.interop.catz._
-import zio.{RIO, _}
+import zio.{ RIO, _ }
 
 object Server {
   type MockRef = Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]]

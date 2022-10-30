@@ -40,8 +40,11 @@ class RequestProcessor(
     val unit: Task[Unit] = ZIO.unit
     val key              = if (semiAutoMode) ConfigurationKeyDto(dto.processId, "*") else dto
     map.get(key).fold(unit) { data =>
-      val qty      = data.nodesQty
-      val messages = (0 until qty).map(_ => data.resultMock.toString()).toList
+      val qty = data.nodesQty
+      val messages = (0 until qty).map { _ =>
+        val updFields = Json.fromFields(Seq(("processId", Json.fromString(dto.processId)), ("optimizationId", Json.fromString(dto.optimizationId))))
+        data.resultMock.deepMerge(updFields).toString()
+      }.toList
       val logs = if (data.logsEnabled) {
         (0 until qty).flatMap { _ =>
           val log1 = LogDto("defaultInstanceId", "2022-09-02T14:44:19.172Z", "INFO", "Disaggregation starts with SOM v1.0.2")
@@ -60,7 +63,7 @@ class RequestProcessor(
         _ <- ZIO.logInfo(s"Delivering ${messages.size} results and ${logs.size} logs")
         _ <- amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
         _ <- ZIO.logInfo("Delivery is successfully finished")
-      } yield()
+      } yield ()
     }
   }
 
@@ -81,10 +84,10 @@ class RequestProcessor(
     import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
     import io.circe.parser._
 
-    val dto = for{
+    val dto = for {
       json <- parse(e)
-      obj <- json.as[ConfigurationKeyDto]
-    }yield obj
+      obj  <- json.as[ConfigurationKeyDto]
+    } yield obj
 
     val finalDto = dto.getOrElse(ConfigurationKeyDto("-1", "-1"))
 
