@@ -61,7 +61,9 @@ class RequestProcessor(
         _ <- ZIO.logInfo("Delivery is planned")
         _ <- ZIO.sleep(duration)
         _ <- ZIO.logInfo(s"Delivering ${messages.size} results and ${logs.size} logs")
-        _ <- amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
+        _ <- amqpMessagesSender(messages, false)
+        _ <- ZIO.sleep(100 milliseconds)
+        _ <- amqpMessagesSender(logs, true)
         _ <- ZIO.logInfo("Delivery is successfully finished")
       } yield ()
     }
