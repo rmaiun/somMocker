@@ -90,11 +90,11 @@ object RabbitInitializer {
     } yield ()
   }
 
-  private def requestQueue(algorithm: String) = QueueName(s"SOM_REQUEST_$algorithm")
+  private def requestQueue(algorithm: String) = QueueName(s"OptimizationRequest_$algorithm")
 
   private def resultsQueue(algorithm: String) = QueueName(s"OptimizationResult_$algorithm")
 
-  private def logsQueue(algorithm: String) = QueueName(s"OptimizationStatus_$algorithm")
+  private def logsQueue(algorithm: String) = QueueName(s"OptimizationLog_$algorithm")
 
   private val defaultRoutingKey = RoutingKey("")
 

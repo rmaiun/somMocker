@@ -1,6 +1,5 @@
 package dev.rmaiun.sommocker
 
-import dev.rmaiun.sommocker.Server.AppEnv
 import dev.rmaiun.sommocker.dtos.ErrorInfo
 import dev.rmaiun.sommocker.services.RequestProcessor
 import org.http4s.HttpRoutes
@@ -27,11 +26,20 @@ class MockRoutes[R <: RequestProcessor] {
       result.mapError(err => ErrorInfo(err.getMessage))
     }
 
+    val listMockServerEndpoint: ZServerEndpoint[RequestProcessor, Any] = listMockEndpoint.zServerLogic { _ =>
+      val result = for {
+        rp  <- ZIO.service[RequestProcessor]
+        out <- rp.listMocks
+      } yield out
+      result.mapError(err => ErrorInfo(err.getMessage))
+    }
+
     ZHttp4sServerInterpreter[R]()
       .from(
         List(
           initMockServerEndpoint.widen[R],
-          evaluateMockServerEndpoint.widen[R]
+          evaluateMockServerEndpoint.widen[R],
+          listMockServerEndpoint.widen[R]
         )
       )
       .toRoutes

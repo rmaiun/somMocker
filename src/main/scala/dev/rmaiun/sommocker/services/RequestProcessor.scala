@@ -17,34 +17,31 @@ class RequestProcessor(
   stubs: Ref[Map[ConfigurationKeyDto, ConfigurationDataDto]],
   algorithmStructureSet: AlgorithmStructureSet
 ) {
+  def listMocks: Task[AllMocks] = stubs.get.map(data => AllMocks(data.values.toList))
+
   def storeRequestConfiguration(dto: ConfigurationDataDto): Task[ConfigurationKeyDto] =
     for {
-      _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.processId, dto.optimizationId) -> dto))
-    } yield ConfigurationKeyDto(dto.processId, dto.optimizationId)
+      _ <- stubs.update(map => map + (ConfigurationKeyDto(dto.algorithm, dto.command) -> dto))
+    } yield ConfigurationKeyDto(dto.algorithm, dto.command)
 
-  def invokeRequest(dto: ConfigurationKeyDto, semiAutoMode: Boolean = false, duration: Duration = 1 seconds): Task[EmptyResult] =
+  def invokeRequest(dto: ConfigurationKeyDto, duration: Duration = 1 seconds): Task[EmptyResult] =
     for {
       _   <- ZIO.logInfo(s"Processing request for $dto")
       map <- stubs.get
-      _   <- sendResults(dto, map, duration, semiAutoMode = semiAutoMode)
+      _   <- sendResults(dto, map, duration)
     } yield EmptyResult()
 
   private def sendResults(
-    dto: ConfigurationKeyDto,
+    key: ConfigurationKeyDto,
     map: Map[ConfigurationKeyDto, ConfigurationDataDto],
-    duration: Duration,
-    semiAutoMode: Boolean = false
+    duration: Duration
   ): Task[Unit] = {
     import dev.rmaiun.sommocker.dtos.LogDto._
     import io.circe.syntax._
     val unit: Task[Unit] = ZIO.unit
-    val key              = if (semiAutoMode) ConfigurationKeyDto(dto.processId, "*") else dto
     map.get(key).fold(unit) { data =>
-      val qty = data.nodesQty
-      val messages = (0 until qty).map { _ =>
-        val updFields = Json.fromFields(Seq(("processId", Json.fromString(dto.processId)), ("optimizationId", Json.fromString(dto.optimizationId))))
-        data.resultMock.deepMerge(updFields).toString()
-      }.toList
+      val qty      = data.nodesQty
+      val messages = (0 until qty).map(_ => data.resultMock.toString()).toList
       val logs = if (data.logsEnabled) {
         (0 until qty).flatMap { _ =>
           val log1 = LogDto("defaultInstanceId", "2022-09-02T14:44:19.172Z", "INFO", "Disaggregation starts with SOM v1.0.2")
@@ -55,15 +52,17 @@ class RequestProcessor(
       } else {
         List.empty
       }
-      val headers            = logHeaders(dto)
-      val amqpMessagesSender = defineSenderF(data.algorithm, algorithmStructureSet, headers)(_, _)
+
       for {
-        _ <- ZIO.logInfo("Delivery is planned")
-        _ <- ZIO.sleep(duration)
-        _ <- ZIO.logInfo(s"Delivering ${messages.size} results and ${logs.size} logs")
-        _ <- amqpMessagesSender(messages, false)
-        _ <- amqpMessagesSender(logs, true)
-        _ <- ZIO.logInfo("Delivery is successfully finished")
+        processId         <- ZIO.fromEither(data.resultMock.hcursor.downField("processId").as[String])
+        optimizationId    <- ZIO.fromEither(data.resultMock.hcursor.downField("optimizationId").as[String])
+        headers            = logHeaders(optimizationId, processId, key.command)
+        amqpMessagesSender = defineSenderF(data.algorithm, algorithmStructureSet, headers)(_, _)
+        _                 <- ZIO.logInfo(s"Delivery is scheduled for algorithm ${key.algorithm} and command ${key.command}")
+        _                 <- ZIO.sleep(duration)
+        _                 <- ZIO.logInfo(s"Delivering ${messages.size} results")
+        _                 <- ZIO.logInfo(s"Delivering ${logs.size} logs")
+        _                 <- amqpMessagesSender(messages, false) *> amqpMessagesSender(logs, true)
       } yield ()
     }
   }
@@ -81,30 +80,22 @@ class RequestProcessor(
         ZIO.forkAllDiscard(effects)
       }
 
-  def processIncomingMessage(e: String): Task[Unit] = {
-    import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
+  def processIncomingMessage(algorithm: String, e: String): Task[Unit] = {
     import io.circe.parser._
-
-    val dto = for {
-      json <- parse(e)
-      obj  <- json.as[ConfigurationKeyDto]
-    } yield obj
-
-    val finalDto = dto.getOrElse(ConfigurationKeyDto("-1", "-1"))
-
     for {
-      _ <- ZIO.logInfo(s"---> incoming request $e")
-      _ <- invokeRequest(finalDto, semiAutoMode = true, 15 seconds)
+      _       <- ZIO.logInfo(s"---> incoming request $e")
+      command <- ZIO.fromEither(parse(e).getOrElse(Json.Null).hcursor.downField("command").as[String])
+      _       <- invokeRequest(ConfigurationKeyDto(algorithm, command), 15 seconds)
     } yield ()
 
   }
 
-  private def logHeaders(key: ConfigurationKeyDto): Map[String, AnyRef] =
+  private def logHeaders(optimizationId: String, processId: String, cmd: String): Map[String, AnyRef] =
     Map(
       "categoryName"       -> "com.artelys.som.logging.SomLogger",
       "level"              -> "INFO",
-      "som.command"        -> "mari",
-      "som.optimizationId" -> key.optimizationId,
-      "som.processId"      -> key.processId
+      "som.command"        -> cmd,
+      "som.optimizationId" -> optimizationId,
+      "som.processId"      -> processId
     )
 }

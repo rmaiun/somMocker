@@ -3,8 +3,9 @@ package dev.rmaiun.sommocker
 import dev.rmaiun.sommocker.Server.AppEnv
 import dev.rmaiun.sommocker.dtos.ConfigurationDataDto._
 import dev.rmaiun.sommocker.dtos.ConfigurationKeyDto._
-import dev.rmaiun.sommocker.dtos.{ ConfigurationDataDto, ConfigurationKeyDto, EmptyResult, ErrorInfo }
+import dev.rmaiun.sommocker.dtos._
 import dev.rmaiun.sommocker.utils.Swagger
+import io.circe.Json
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
 import sttp.tapir.PublicEndpoint
@@ -23,23 +24,31 @@ object Endpoints {
   val initMockEndpoint: PublicEndpoint[ConfigurationDataDto, ErrorInfo, ConfigurationKeyDto, Any] = {
     endpoint.post
       .description("Init mock for particular process code and optimization run id")
-      .in("initMock")
+      .in("mock" / "init")
       .in(
         jsonBody[ConfigurationDataDto]
-          .example(ConfigurationDataDto("x1", "or1", "ALG_SOM1_DEV", 4, logsEnabled = false, Swagger.initMockJsonExample))
+          .example(ConfigurationDataDto("TEST_ALG#1", "mari", 4, logsEnabled = false, Swagger.initMockJsonExample))
       )
       .out(
         jsonBody[ConfigurationKeyDto]
-          .example(ConfigurationKeyDto("x1", "or1"))
+          .example(ConfigurationKeyDto("TEST_ALG#1", "mari"))
       )
+      .errorOut(jsonBody[ErrorInfo])
+  }
+
+  val listMockEndpoint: PublicEndpoint[Unit, ErrorInfo, AllMocks, Any] = {
+    endpoint.get
+      .description("List configured mocks")
+      .in("mock" / "list")
+      .out(jsonBody[AllMocks].example(AllMocks(List(ConfigurationDataDto("TEST_ALGORITHM_1", "mari", 4, logsEnabled = true, Json.Null)))))
       .errorOut(jsonBody[ErrorInfo])
   }
 
   val evaluateMockEndpoint: PublicEndpoint[ConfigurationKeyDto, ErrorInfo, EmptyResult, Any] = {
     endpoint.post
       .description("Evaluate response generation for preconfigured mock")
-      .in("evaluateMock")
-      .in(jsonBody[ConfigurationKeyDto].example(ConfigurationKeyDto("x1", "or1")))
+      .in("mock" / "evaluate")
+      .in(jsonBody[ConfigurationKeyDto].example(ConfigurationKeyDto("TEST_ALGORITHM_1", "mari")))
       .out(jsonBody[EmptyResult].example(EmptyResult()))
       .errorOut(jsonBody[ErrorInfo])
   }
@@ -58,9 +67,17 @@ object Endpoints {
         .mapError(err => ErrorInfo(err.getMessage))
     }
 
+  def listMockServerEndpoint: ZServerEndpoint[AppEnv, Any] =
+    listMockEndpoint.zServerLogic { _ =>
+      ZIO
+        .serviceWithZIO[services.RequestProcessor](_.listMocks)
+        .mapError(err => ErrorInfo(err.getMessage))
+    }
+
   val endpoints: List[ZServerEndpoint[AppEnv, Any]] = List(
     initMockServerEndpoint,
-    evaluateMockServerEndpoint
+    evaluateMockServerEndpoint,
+    listMockServerEndpoint
   )
 
   val routes: HttpRoutes[RIO[AppEnv, *]] = {

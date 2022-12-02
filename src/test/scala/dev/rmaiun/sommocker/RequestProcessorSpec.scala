@@ -13,10 +13,10 @@ object RequestProcessorSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment with Scope, Throwable] = suite("RequestProcessorTest")(
     test("Successfully init mock") {
-      val dto = ConfigurationDataDto("pc1", "or1", "ag1", 4, logsEnabled = false, Json.Null)
+      val dto = ConfigurationDataDto("TEST_ALG#1", "mari", 4, logsEnabled = false, Json.Null)
       for {
         rp <- ZIO.serviceWithZIO[RequestProcessor](_.storeRequestConfiguration(dto))
-      } yield assertTrue(rp.processId == dto.processId)
+      } yield assertTrue(rp.algorithm == dto.algorithm)
     }
   ).provideLayer(
     ZLayer.make[RequestProcessor](
