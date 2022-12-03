@@ -20,7 +20,7 @@ object Server {
       set         <- ZIO.service[AlgorithmStructureSet]
       rp          <- ZIO.service[RequestProcessor]
       _           <- ZIO.logInfo("Starting request consumer ...")
-      _           <- (ZIO foreach set.structures)(s => s.structs.requestConsumer.tap(str => rp.processIncomingMessage(s.code,str)).runDrain.fork)
+      _           <- (ZIO foreach set.structures)(s => s.structs.requestConsumer.tap(str => rp.processIncomingMessage(s.code, str)).runDrain.fork)
       _           <- ZIO.logInfo("request consumer is successfully started")
       httpApp      = Router("/" -> (Endpoints.routes <+> Endpoints.swaggerRoutes)).orNotFound
       finalHttpApp = Logger.httpApp(logHeaders = true, logBody = false)(httpApp)

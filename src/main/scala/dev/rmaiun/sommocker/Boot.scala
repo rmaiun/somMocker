@@ -52,13 +52,12 @@ object Boot extends ZIOApp {
   }
 
   override def bootstrap: ZLayer[ZIOAppArgs, Any, Environment] = {
-    val finalLayer = ZLayer
-      .make[Environment](
-        Scope.default,
-        refLayer,
-        structsLayer,
-        RequestProcessor.live
-      ) ++ logger
+    val finalLayer = logger >>> ZLayer.make[Environment](
+      Scope.default,
+      refLayer,
+      structsLayer,
+      RequestProcessor.live
+    )
     finalLayer.tapErrorCause(err => ZIO.logCause(Cause.fail(err)))
   }
 
